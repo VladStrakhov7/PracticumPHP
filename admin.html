@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель управления - Комфорт-отдых</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin: 30px 0 15px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 4px 4px 0 0;
+            font-size: 16px;
+        }
+        .tab.active {
+            background: #4CAF50;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.delete {
+            background: #f44336;
+        }
+        button.delete:hover {
+            background: #da190b;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+        .list-container {
+            margin-top: 30px;
+        }
+        .item {
+            background: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .item-title {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+        .item-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .item-info {
+            color: #666;
+            margin: 5px 0;
+        }
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏖️ Панель управления - Комфорт-отдых</h1>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('countries')">Страны</button>
+            <button class="tab" onclick="showTab('clients')">Клиенты</button>
+            <button class="tab" onclick="showTab('tours')">Туры</button>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <!-- Страны -->
+        <div id="countries" class="tab-content active">
+            <h2>Управление странами</h2>
+            <form id="countryForm">
+                <input type="hidden" id="countryId">
+                <div class="form-group">
+                    <label>Название страны *</label>
+                    <input type="text" id="countryName" required>
+                </div>
+                <div class="form-group">
+                    <label>Столица</label>
+                    <input type="text" id="countryCapital">
+                </div>
+                <div class="form-group">
+                    <label>Описание</label>
+                    <textarea id="countryDescription"></textarea>
+                </div>
+                <button type="submit">Сохранить</button>
+                <button type="button" onclick="resetCountryForm()">Отмена</button>
+            </form>
+            <div class="list-container">
+                <h2>Список стран</h2>
+                <button class="secondary" onclick="loadCountries()">Обновить список</button>
+                <div id="countriesList"></div>
+            </div>
+        </div>
+
+        <!-- Клиенты -->
+        <div id="clients" class="tab-content">
+            <h2>Управление клиентами</h2>
+            <form id="clientForm">
+                <input type="hidden" id="clientId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Имя *</label>
+                        <input type="text" id="clientFirstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Фамилия *</label>
+                        <input type="text" id="clientLastName" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="clientEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Телефон</label>
+                    <input type="text" id="clientPhone">
+                </div>
+                <button type="submit">Сохранить</button>
+                <button type="button" onclick="resetClientForm()">Отмена</button>
+            </form>
+            <div class="list-container">
+                <h2>Список клиентов</h2>
+                <button class="secondary" onclick="loadClients()">Обновить список</button>
+                <div id="clientsList"></div>
+            </div>
+        </div>
+
+        <!-- Туры -->
+        <div id="tours" class="tab-content">
+            <h2>Управление турами</h2>
+            <form id="tourForm">
+                <input type="hidden" id="tourId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Страна *</label>
+                        <select id="tourCountryId" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Клиент *</label>
+                        <select id="tourClientId" required></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Дата начала *</label>
+                        <input type="date" id="tourStartDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Дата окончания *</label>
+                        <input type="date" id="tourEndDate" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Цена *</label>
+                        <input type="number" id="tourPrice" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Статус</label>
+                        <select id="tourStatus">
+                            <option value="planned">Запланирован</option>
+                            <option value="confirmed">Подтвержден</option>
+                            <option value="completed">Завершен</option>
+                            <option value="cancelled">Отменен</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit">Сохранить</button>
+                <button type="button" onclick="resetTourForm()">Отмена</button>
+            </form>
+            <div class="list-container">
+                <h2>Список туров</h2>
+                <button class="secondary" onclick="loadTours()">Обновить список</button>
+                <div id="toursList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Путь к API (относительно текущей страницы)
+        // Если страница в /rest_api/admin.html, то API будет в /rest_api/api.php
+        const API_URL = 'api.php';
+
+        // Управление вкладками
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'countries') loadCountries();
+            if (tabName === 'clients') loadClients();
+            if (tabName === 'tours') {
+                loadCountries(); // Загружаем для выпадающего списка
+                loadClients();
+                loadTours();
+            }
+        }
+
+        // Показ сообщений
+        function showMessage(text, isError = false) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = 'message ' + (isError ? 'error' : 'success');
+            setTimeout(() => msg.className = 'message', 5000);
+        }
+
+        // ========== СТРАНЫ ==========
+        document.getElementById('countryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('countryId').value;
+            const data = {
+                name: document.getElementById('countryName').value,
+                capital: document.getElementById('countryCapital').value,
+                description: document.getElementById('countryDescription').value
+            };
+
+            try {
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `${API_URL}/countries/${id}` : `${API_URL}/countries`;
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showMessage(id ? 'Страна обновлена!' : 'Страна создана!');
+                    resetCountryForm();
+                    loadCountries();
+                } else {
+                    showMessage(result.error || 'Ошибка', true);
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        });
+
+        async function loadCountries() {
+            try {
+                const response = await fetch(`${API_URL}/countries`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка загрузки стран');
+                }
+                const countries = await response.json();
+                const list = document.getElementById('countriesList');
+                
+                // Заполняем выпадающий список для туров
+                const select = document.getElementById('tourCountryId');
+                select.innerHTML = '<option value="">Выберите страну</option>';
+                countries.forEach(c => {
+                    select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+                });
+
+                if (countries.length === 0) {
+                    list.innerHTML = '<p>Нет стран</p>';
+                    return;
+                }
+
+                list.innerHTML = countries.map(c => `
+                    <div class="item">
+                        <div class="item-header">
+                            <div class="item-title">${c.name}</div>
+                            <div class="item-actions">
+                                <button onclick="editCountry(${c.id})">Редактировать</button>
+                                <button class="delete" onclick="deleteCountry(${c.id})">Удалить</button>
+                            </div>
+                        </div>
+                        <div class="item-info">Столица: ${c.capital || 'не указана'}</div>
+                        <div class="item-info">${c.description || ''}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showMessage('Ошибка загрузки стран: ' + error.message, true);
+            }
+        }
+
+        async function editCountry(id) {
+            try {
+                const response = await fetch(`${API_URL}/countries/${id}`);
+                const country = await response.json();
+                document.getElementById('countryId').value = country.id;
+                document.getElementById('countryName').value = country.name || '';
+                document.getElementById('countryCapital').value = country.capital || '';
+                document.getElementById('countryDescription').value = country.description || '';
+                document.getElementById('countryForm').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        }
+
+        async function deleteCountry(id) {
+            if (!confirm('Удалить эту страну?')) return;
+            try {
+                const response = await fetch(`${API_URL}/countries/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (response.ok) {
+                    showMessage('Страна удалена!');
+                    loadCountries();
+                } else {
+                    showMessage(result.error || 'Ошибка', true);
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        }
+
+        function resetCountryForm() {
+            document.getElementById('countryForm').reset();
+            document.getElementById('countryId').value = '';
+        }
+
+        // ========== КЛИЕНТЫ ==========
+        document.getElementById('clientForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('clientId').value;
+            const data = {
+                first_name: document.getElementById('clientFirstName').value,
+                last_name: document.getElementById('clientLastName').value,
+                email: document.getElementById('clientEmail').value,
+                phone: document.getElementById('clientPhone').value
+            };
+
+            try {
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `${API_URL}/clients/${id}` : `${API_URL}/clients`;
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showMessage(id ? 'Клиент обновлен!' : 'Клиент создан!');
+                    resetClientForm();
+                    loadClients();
+                } else {
+                    showMessage(result.error || 'Ошибка', true);
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        });
+
+        async function loadClients() {
+            try {
+                const response = await fetch(`${API_URL}/clients`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка загрузки клиентов');
+                }
+                const clients = await response.json();
+                const list = document.getElementById('clientsList');
+                
+                // Заполняем выпадающий список для туров
+                const select = document.getElementById('tourClientId');
+                select.innerHTML = '<option value="">Выберите клиента</option>';
+                clients.forEach(c => {
+                    select.innerHTML += `<option value="${c.id}">${c.first_name} ${c.last_name} (${c.email})</option>`;
+                });
+
+                if (clients.length === 0) {
+                    list.innerHTML = '<p>Нет клиентов</p>';
+                    return;
+                }
+
+                list.innerHTML = clients.map(c => `
+                    <div class="item">
+                        <div class="item-header">
+                            <div class="item-title">${c.first_name} ${c.last_name}</div>
+                            <div class="item-actions">
+                                <button onclick="editClient(${c.id})">Редактировать</button>
+                                <button class="delete" onclick="deleteClient(${c.id})">Удалить</button>
+                            </div>
+                        </div>
+                        <div class="item-info">Email: ${c.email}</div>
+                        <div class="item-info">Телефон: ${c.phone || 'не указан'}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showMessage('Ошибка загрузки клиентов: ' + error.message, true);
+            }
+        }
+
+        async function editClient(id) {
+            try {
+                const response = await fetch(`${API_URL}/clients/${id}`);
+                const client = await response.json();
+                document.getElementById('clientId').value = client.id;
+                document.getElementById('clientFirstName').value = client.first_name || '';
+                document.getElementById('clientLastName').value = client.last_name || '';
+                document.getElementById('clientEmail').value = client.email || '';
+                document.getElementById('clientPhone').value = client.phone || '';
+                document.getElementById('clientForm').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        }
+
+        async function deleteClient(id) {
+            if (!confirm('Удалить этого клиента?')) return;
+            try {
+                const response = await fetch(`${API_URL}/clients/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (response.ok) {
+                    showMessage('Клиент удален!');
+                    loadClients();
+                } else {
+                    showMessage(result.error || 'Ошибка', true);
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        }
+
+        function resetClientForm() {
+            document.getElementById('clientForm').reset();
+            document.getElementById('clientId').value = '';
+        }
+
+        // ========== ТУРЫ ==========
+        document.getElementById('tourForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('tourId').value;
+            const data = {
+                country_id: parseInt(document.getElementById('tourCountryId').value),
+                client_id: parseInt(document.getElementById('tourClientId').value),
+                start_date: document.getElementById('tourStartDate').value,
+                end_date: document.getElementById('tourEndDate').value,
+                price: parseFloat(document.getElementById('tourPrice').value),
+                status: document.getElementById('tourStatus').value
+            };
+
+            try {
+                const method = id ? 'PUT' : 'POST';
+                const url = id ? `${API_URL}/tours/${id}` : `${API_URL}/tours`;
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showMessage(id ? 'Тур обновлен!' : 'Тур создан!');
+                    resetTourForm();
+                    loadTours();
+                } else {
+                    showMessage(result.error || 'Ошибка', true);
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        });
+
+        async function loadTours() {
+            try {
+                const response = await fetch(`${API_URL}/tours`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка загрузки туров');
+                }
+                const tours = await response.json();
+                const list = document.getElementById('toursList');
+
+                if (tours.length === 0) {
+                    list.innerHTML = '<p>Нет туров</p>';
+                    return;
+                }
+
+                const statusNames = {
+                    'planned': 'Запланирован',
+                    'confirmed': 'Подтвержден',
+                    'completed': 'Завершен',
+                    'cancelled': 'Отменен'
+                };
+
+                list.innerHTML = tours.map(t => `
+                    <div class="item">
+                        <div class="item-header">
+                            <div class="item-title">Тур в ${t.country_name || 'неизвестную страну'}</div>
+                            <div class="item-actions">
+                                <button onclick="editTour(${t.id})">Редактировать</button>
+                                <button class="delete" onclick="deleteTour(${t.id})">Удалить</button>
+                            </div>
+                        </div>
+                        <div class="item-info">Клиент: ${t.client_name || 'не указан'}</div>
+                        <div class="item-info">Даты: ${t.start_date} - ${t.end_date}</div>
+                        <div class="item-info">Цена: ${t.price} ₽</div>
+                        <div class="item-info">Статус: ${statusNames[t.status] || t.status}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showMessage('Ошибка загрузки туров: ' + error.message, true);
+            }
+        }
+
+        async function editTour(id) {
+            try {
+                const response = await fetch(`${API_URL}/tours/${id}`);
+                const tour = await response.json();
+                document.getElementById('tourId').value = tour.id;
+                document.getElementById('tourCountryId').value = tour.country_id;
+                document.getElementById('tourClientId').value = tour.client_id;
+                document.getElementById('tourStartDate').value = tour.start_date;
+                document.getElementById('tourEndDate').value = tour.end_date;
+                document.getElementById('tourPrice').value = tour.price;
+                document.getElementById('tourStatus').value = tour.status || 'planned';
+                document.getElementById('tourForm').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        }
+
+        async function deleteTour(id) {
+            if (!confirm('Удалить этот тур?')) return;
+            try {
+                const response = await fetch(`${API_URL}/tours/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (response.ok) {
+                    showMessage('Тур удален!');
+                    loadTours();
+                } else {
+                    showMessage(result.error || 'Ошибка', true);
+                }
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        }
+
+        function resetTourForm() {
+            document.getElementById('tourForm').reset();
+            document.getElementById('tourId').value = '';
+        }
+
+        // Загружаем данные при загрузке страницы
+        window.addEventListener('load', () => {
+            // Не загружаем автоматически, пользователь может выбрать вкладку
+        });
+    </script>
+</body>
+</html>
+

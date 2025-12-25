@@ -1,17 +1,9 @@
-# Включение обработки PHP файлов
-AddHandler application/x-httpd-php .php
+RewriteEngine On
 
-# Защита от прямого доступа к конфигурационным файлам
-<FilesMatch "^(config|functions)\.php$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
+# Если запрос не указывает на существующий файл или директорию
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 
-# Установка кодировки по умолчанию
-AddDefaultCharset UTF-8
-
-# Включение отображения ошибок (для разработки)
-# В продакшене закомментируйте следующие строки
-php_flag display_errors On
-php_value error_reporting E_ALL
+# Перенаправляем на api.php
+RewriteRule ^(.*)$ api.php [QSA,L]
 

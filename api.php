@@ -1,127 +1,371 @@
 <?php
 require_once 'config.php';
-require_once 'functions.php';
 
-header('Content-Type: application/json');
+// Получение пути запроса
+$requestUri = $_SERVER['REQUEST_URI'];
+$requestMethod = $_SERVER['REQUEST_METHOD'];
 
-if (!isLoggedIn()) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Требуется авторизация']);
-    exit;
+// Удаляем query string
+$path = parse_url($requestUri, PHP_URL_PATH);
+
+// Удаляем базовый путь проекта и имя файла api.php
+$scriptName = dirname($_SERVER['SCRIPT_NAME']);
+$basePath = str_replace('\\', '/', $scriptName);
+if ($basePath !== '/' && $basePath !== '') {
+    $path = str_replace($basePath, '', $path);
+}
+$path = str_replace('/api.php', '', $path);
+$path = trim($path, '/');
+
+// Разбиваем путь на части
+$pathParts = explode('/', $path);
+
+// Получение данных из запроса
+$input = json_decode(file_get_contents('php://input'), true);
+if ($input === null && $requestMethod !== 'GET' && $requestMethod !== 'DELETE') {
+    $input = $_POST;
 }
 
-$action = $_GET['action'] ?? '';
+$db = getDB();
+setJsonHeaders();
 
-switch ($action) {
-    case 'like':
-        $video_id = intval($_POST['video_id'] ?? 0);
-        $type = $_POST['type'] ?? '';
-        $user = getCurrentUser();
-        
-        if ($video_id && in_array($type, ['like', 'dislike'])) {
-            $pdo = getDB();
-            
-            // Проверяем существующий лайк
-            $stmt = $pdo->prepare("SELECT type FROM likes WHERE video_id = ? AND user_id = ?");
-            $stmt->execute([$video_id, $user['id']]);
-            $existing = $stmt->fetch();
-            
-            if ($existing) {
-                if ($existing['type'] === $type) {
-                    // Удаляем лайк, если кликнули на тот же тип
-                    $stmt = $pdo->prepare("DELETE FROM likes WHERE video_id = ? AND user_id = ?");
-                    $stmt->execute([$video_id, $user['id']]);
-                } else {
-                    // Меняем тип лайка
-                    $stmt = $pdo->prepare("UPDATE likes SET type = ? WHERE video_id = ? AND user_id = ?");
-                    $stmt->execute([$type, $video_id, $user['id']]);
-                }
-            } else {
-                // Создаем новый лайк
-                $stmt = $pdo->prepare("INSERT INTO likes (video_id, user_id, type) VALUES (?, ?, ?)");
-                $stmt->execute([$video_id, $user['id'], $type]);
-            }
-            
-            // Получаем обновленные счетчики
-            $stmt = $pdo->prepare("SELECT 
-                (SELECT COUNT(*) FROM likes WHERE video_id = ? AND type = 'like') as likes_count,
-                (SELECT COUNT(*) FROM likes WHERE video_id = ? AND type = 'dislike') as dislikes_count,
-                (SELECT type FROM likes WHERE video_id = ? AND user_id = ?) as user_like");
-            $stmt->execute([$video_id, $video_id, $video_id, $user['id']]);
-            $result = $stmt->fetch();
-            
-            echo json_encode([
-                'success' => true,
-                'likes_count' => $result['likes_count'],
-                'dislikes_count' => $result['dislikes_count'],
-                'user_like' => $result['user_like']
-            ]);
-        } else {
-            http_response_code(400);
-            echo json_encode(['error' => 'Неверные параметры']);
-        }
+// Роутинг
+$resource = $pathParts[0] ?? '';
+$id = $pathParts[1] ?? null;
+
+// Обработка OPTIONS запросов (CORS)
+if ($requestMethod === 'OPTIONS') {
+    sendJsonResponse(['message' => 'OK']);
+}
+
+// Роутинг по ресурсам
+switch ($resource) {
+    case 'countries':
+        handleCountries($db, $requestMethod, $id, $input);
         break;
-        
-    case 'comment':
-        $video_id = intval($_POST['video_id'] ?? 0);
-        $text = trim($_POST['comment'] ?? '');
-        $user = getCurrentUser();
-        
-        if ($video_id && $text) {
-            $pdo = getDB();
-            $stmt = $pdo->prepare("INSERT INTO comments (video_id, user_id, text) VALUES (?, ?, ?)");
-            if ($stmt->execute([$video_id, $user['id'], $text])) {
-                $comment_id = $pdo->lastInsertId();
-                $stmt = $pdo->prepare("SELECT c.*, u.username FROM comments c JOIN users u ON c.user_id = u.id WHERE c.id = ?");
-                $stmt->execute([$comment_id]);
-                $comment = $stmt->fetch();
-                
-                echo json_encode([
-                    'success' => true,
-                    'comment' => [
-                        'id' => $comment['id'],
-                        'username' => $comment['username'],
-                        'text' => $comment['text'],
-                        'created_at' => $comment['created_at']
-                    ]
-                ]);
-            } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'Ошибка при сохранении комментария']);
-            }
-        } else {
-            http_response_code(400);
-            echo json_encode(['error' => 'Заполните все поля']);
-        }
+    case 'clients':
+        handleClients($db, $requestMethod, $id, $input);
         break;
-        
-    case 'update_restrictions':
-        if (!isAdmin()) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Доступ запрещен']);
-            exit;
-        }
-        
-        $video_id = intval($_POST['video_id'] ?? 0);
-        $restrictions = trim($_POST['restrictions'] ?? '');
-        
-        if ($video_id) {
-            $pdo = getDB();
-            $stmt = $pdo->prepare("UPDATE videos SET restrictions = ? WHERE id = ?");
-            if ($stmt->execute([$restrictions, $video_id])) {
-                echo json_encode(['success' => true]);
-            } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'Ошибка при обновлении']);
-            }
-        } else {
-            http_response_code(400);
-            echo json_encode(['error' => 'Неверные параметры']);
-        }
+    case 'tours':
+        handleTours($db, $requestMethod, $id, $input);
         break;
-        
     default:
-        http_response_code(400);
-        echo json_encode(['error' => 'Неизвестное действие']);
+        sendError('Ресурс не найден. Используйте: /countries, /clients, /tours', 404);
+}
+
+// Обработка запросов для стран
+function handleCountries($db, $method, $id, $input) {
+    switch ($method) {
+        case 'GET':
+            if ($id) {
+                $stmt = $db->prepare('SELECT * FROM countries WHERE id = ?');
+                $stmt->execute([$id]);
+                $country = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$country) {
+                    sendError('Страна не найдена', 404);
+                }
+                sendJsonResponse($country);
+            } else {
+                $stmt = $db->query('SELECT * FROM countries ORDER BY id');
+                $countries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                sendJsonResponse($countries);
+            }
+            break;
+            
+        case 'POST':
+            if (!isset($input['name']) || empty($input['name'])) {
+                sendError('Имя страны обязательно');
+            }
+            $stmt = $db->prepare('INSERT INTO countries (name, capital, description) VALUES (?, ?, ?)');
+            $stmt->execute([
+                $input['name'] ?? null,
+                $input['capital'] ?? null,
+                $input['description'] ?? null
+            ]);
+            $id = $db->lastInsertId();
+            $stmt = $db->prepare('SELECT * FROM countries WHERE id = ?');
+            $stmt->execute([$id]);
+            sendJsonResponse($stmt->fetch(PDO::FETCH_ASSOC), 201);
+            break;
+            
+        case 'PUT':
+            if (!$id) {
+                sendError('ID обязателен для обновления');
+            }
+            $stmt = $db->prepare('SELECT * FROM countries WHERE id = ?');
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                sendError('Страна не найдена', 404);
+            }
+            $stmt = $db->prepare('UPDATE countries SET name = ?, capital = ?, description = ? WHERE id = ?');
+            $stmt->execute([
+                $input['name'] ?? null,
+                $input['capital'] ?? null,
+                $input['description'] ?? null,
+                $id
+            ]);
+            $stmt = $db->prepare('SELECT * FROM countries WHERE id = ?');
+            $stmt->execute([$id]);
+            sendJsonResponse($stmt->fetch(PDO::FETCH_ASSOC));
+            break;
+            
+        case 'DELETE':
+            if (!$id) {
+                sendError('ID обязателен для удаления');
+            }
+            $stmt = $db->prepare('SELECT * FROM countries WHERE id = ?');
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                sendError('Страна не найдена', 404);
+            }
+            $stmt = $db->prepare('DELETE FROM countries WHERE id = ?');
+            $stmt->execute([$id]);
+            sendJsonResponse(['message' => 'Страна удалена']);
+            break;
+            
+        default:
+            sendError('Метод не поддерживается', 405);
+    }
+}
+
+// Обработка запросов для клиентов
+function handleClients($db, $method, $id, $input) {
+    switch ($method) {
+        case 'GET':
+            if ($id) {
+                $stmt = $db->prepare('SELECT * FROM clients WHERE id = ?');
+                $stmt->execute([$id]);
+                $client = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$client) {
+                    sendError('Клиент не найден', 404);
+                }
+                sendJsonResponse($client);
+            } else {
+                $stmt = $db->query('SELECT * FROM clients ORDER BY id');
+                $clients = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                sendJsonResponse($clients);
+            }
+            break;
+            
+        case 'POST':
+            if (!isset($input['first_name']) || !isset($input['last_name']) || !isset($input['email'])) {
+                sendError('Имя, фамилия и email обязательны');
+            }
+            $stmt = $db->prepare('INSERT INTO clients (first_name, last_name, email, phone) VALUES (?, ?, ?, ?)');
+            try {
+                $stmt->execute([
+                    $input['first_name'],
+                    $input['last_name'],
+                    $input['email'],
+                    $input['phone'] ?? null
+                ]);
+                $id = $db->lastInsertId();
+                $stmt = $db->prepare('SELECT * FROM clients WHERE id = ?');
+                $stmt->execute([$id]);
+                sendJsonResponse($stmt->fetch(PDO::FETCH_ASSOC), 201);
+            } catch (PDOException $e) {
+                if (strpos($e->getMessage(), 'UNIQUE constraint') !== false) {
+                    sendError('Клиент с таким email уже существует', 409);
+                }
+                sendError('Ошибка при создании клиента: ' . $e->getMessage());
+            }
+            break;
+            
+        case 'PUT':
+            if (!$id) {
+                sendError('ID обязателен для обновления');
+            }
+            $stmt = $db->prepare('SELECT * FROM clients WHERE id = ?');
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                sendError('Клиент не найден', 404);
+            }
+            $stmt = $db->prepare('UPDATE clients SET first_name = ?, last_name = ?, email = ?, phone = ? WHERE id = ?');
+            try {
+                $stmt->execute([
+                    $input['first_name'] ?? null,
+                    $input['last_name'] ?? null,
+                    $input['email'] ?? null,
+                    $input['phone'] ?? null,
+                    $id
+                ]);
+                $stmt = $db->prepare('SELECT * FROM clients WHERE id = ?');
+                $stmt->execute([$id]);
+                sendJsonResponse($stmt->fetch(PDO::FETCH_ASSOC));
+            } catch (PDOException $e) {
+                if (strpos($e->getMessage(), 'UNIQUE constraint') !== false) {
+                    sendError('Клиент с таким email уже существует', 409);
+                }
+                sendError('Ошибка при обновлении клиента');
+            }
+            break;
+            
+        case 'DELETE':
+            if (!$id) {
+                sendError('ID обязателен для удаления');
+            }
+            $stmt = $db->prepare('SELECT * FROM clients WHERE id = ?');
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                sendError('Клиент не найден', 404);
+            }
+            $stmt = $db->prepare('DELETE FROM clients WHERE id = ?');
+            $stmt->execute([$id]);
+            sendJsonResponse(['message' => 'Клиент удален']);
+            break;
+            
+        default:
+            sendError('Метод не поддерживается', 405);
+    }
+}
+
+// Обработка запросов для туров
+function handleTours($db, $method, $id, $input) {
+    switch ($method) {
+        case 'GET':
+            if ($id) {
+                $stmt = $db->prepare('
+                    SELECT t.*, 
+                           c.name as country_name, 
+                           CONCAT(cl.first_name, " ", cl.last_name) as client_name
+                    FROM tours t
+                    LEFT JOIN countries c ON t.country_id = c.id
+                    LEFT JOIN clients cl ON t.client_id = cl.id
+                    WHERE t.id = ?
+                ');
+                $stmt->execute([$id]);
+                $tour = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$tour) {
+                    sendError('Тур не найден', 404);
+                }
+                sendJsonResponse($tour);
+            } else {
+                $stmt = $db->query('
+                    SELECT t.*, 
+                           c.name as country_name, 
+                           CONCAT(cl.first_name, " ", cl.last_name) as client_name
+                    FROM tours t
+                    LEFT JOIN countries c ON t.country_id = c.id
+                    LEFT JOIN clients cl ON t.client_id = cl.id
+                    ORDER BY t.id
+                ');
+                $tours = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                sendJsonResponse($tours);
+            }
+            break;
+            
+        case 'POST':
+            if (!isset($input['country_id']) || !isset($input['client_id']) || 
+                !isset($input['start_date']) || !isset($input['end_date']) || 
+                !isset($input['price'])) {
+                sendError('country_id, client_id, start_date, end_date и price обязательны');
+            }
+            
+            // Проверка существования страны и клиента
+            $stmt = $db->prepare('SELECT id FROM countries WHERE id = ?');
+            $stmt->execute([$input['country_id']]);
+            if (!$stmt->fetch()) {
+                sendError('Страна не найдена', 404);
+            }
+            
+            $stmt = $db->prepare('SELECT id FROM clients WHERE id = ?');
+            $stmt->execute([$input['client_id']]);
+            if (!$stmt->fetch()) {
+                sendError('Клиент не найден', 404);
+            }
+            
+            $stmt = $db->prepare('INSERT INTO tours (country_id, client_id, start_date, end_date, price, status) VALUES (?, ?, ?, ?, ?, ?)');
+            $stmt->execute([
+                $input['country_id'],
+                $input['client_id'],
+                $input['start_date'],
+                $input['end_date'],
+                $input['price'],
+                $input['status'] ?? 'planned'
+            ]);
+            $id = $db->lastInsertId();
+            
+            $stmt = $db->prepare('
+                SELECT t.*, 
+                       c.name as country_name, 
+                       CONCAT(cl.first_name, " ", cl.last_name) as client_name
+                FROM tours t
+                LEFT JOIN countries c ON t.country_id = c.id
+                LEFT JOIN clients cl ON t.client_id = cl.id
+                WHERE t.id = ?
+            ');
+            $stmt->execute([$id]);
+            sendJsonResponse($stmt->fetch(PDO::FETCH_ASSOC), 201);
+            break;
+            
+        case 'PUT':
+            if (!$id) {
+                sendError('ID обязателен для обновления');
+            }
+            $stmt = $db->prepare('SELECT * FROM tours WHERE id = ?');
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                sendError('Тур не найден', 404);
+            }
+            
+            // Проверка страны если указана
+            if (isset($input['country_id'])) {
+                $stmt = $db->prepare('SELECT id FROM countries WHERE id = ?');
+                $stmt->execute([$input['country_id']]);
+                if (!$stmt->fetch()) {
+                    sendError('Страна не найдена', 404);
+                }
+            }
+            
+            // Проверка клиента если указан
+            if (isset($input['client_id'])) {
+                $stmt = $db->prepare('SELECT id FROM clients WHERE id = ?');
+                $stmt->execute([$input['client_id']]);
+                if (!$stmt->fetch()) {
+                    sendError('Клиент не найден', 404);
+                }
+            }
+            
+            $stmt = $db->prepare('UPDATE tours SET country_id = ?, client_id = ?, start_date = ?, end_date = ?, price = ?, status = ? WHERE id = ?');
+            $stmt->execute([
+                $input['country_id'] ?? null,
+                $input['client_id'] ?? null,
+                $input['start_date'] ?? null,
+                $input['end_date'] ?? null,
+                $input['price'] ?? null,
+                $input['status'] ?? null,
+                $id
+            ]);
+            
+            $stmt = $db->prepare('
+                SELECT t.*, 
+                       c.name as country_name, 
+                       CONCAT(cl.first_name, " ", cl.last_name) as client_name
+                FROM tours t
+                LEFT JOIN countries c ON t.country_id = c.id
+                LEFT JOIN clients cl ON t.client_id = cl.id
+                WHERE t.id = ?
+            ');
+            $stmt->execute([$id]);
+            sendJsonResponse($stmt->fetch(PDO::FETCH_ASSOC));
+            break;
+            
+        case 'DELETE':
+            if (!$id) {
+                sendError('ID обязателен для удаления');
+            }
+            $stmt = $db->prepare('SELECT * FROM tours WHERE id = ?');
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                sendError('Тур не найден', 404);
+            }
+            $stmt = $db->prepare('DELETE FROM tours WHERE id = ?');
+            $stmt->execute([$id]);
+            sendJsonResponse(['message' => 'Тур удален']);
+            break;
+            
+        default:
+            sendError('Метод не поддерживается', 405);
+    }
 }
 

@@ -1,89 +1,161 @@
-<?php
-require_once 'config.php';
-require_once 'functions.php';
-
-// Проверка подключения к БД перед выполнением запросов
-try {
-    $pdo = getDB();
-    // Проверяем существование таблицы videos
-    $pdo->query("SELECT 1 FROM videos LIMIT 1");
-} catch (PDOException $e) {
-    die("<h1>Ошибка подключения к базе данных</h1>
-         <p style='color: red;'>" . htmlspecialchars($e->getMessage()) . "</p>
-         <p><strong>Решение:</strong></p>
-         <ol>
-             <li>Убедитесь, что MySQL запущен в XAMPP</li>
-             <li>Откройте phpMyAdmin: <a href='http://localhost/phpmyadmin' target='_blank'>http://localhost/phpmyadmin</a></li>
-             <li>Выполните SQL-скрипт из файла <code>database.sql</code></li>
-         </ol>
-         <p><a href='test.php'>Проверить настройки</a></p>");
-}
-
-try {
-    $videos = getAllVideos();
-    var_dump($videos);
-    $user = getCurrentUser();
-} catch (Exception $e) {
-    die("Ошибка: " . htmlspecialchars($e->getMessage()) . "<br><a href='test.php'>Проверить настройки</a>");
-}
-?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Видеохостинг</title>
-    <link rel="stylesheet" href="style.css">
+    <title>REST API - Комфорт-отдых</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .endpoint {
+            background: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #4CAF50;
+            border-radius: 4px;
+        }
+        .method {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 12px;
+        }
+        .get { background: #2196F3; color: white; }
+        .post { background: #4CAF50; color: white; }
+        .put { background: #FF9800; color: white; }
+        .delete { background: #f44336; color: white; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .example {
+            background: #fff3cd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #ffc107;
+        }
+        a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <div class="container">
-            <h1>Видеохостинг</h1>
-            <nav>
-                <?php if (isLoggedIn()): ?>
-                    <span>Привет, <?= htmlspecialchars($user['username']) ?>!</span>
-                    <?php if (isAdmin()): ?>
-                        <a href="admin.php">Админ-панель</a>
-                    <?php endif; ?>
-                    <a href="upload.php">Загрузить видео</a>
-                    <a href="logout.php">Выход</a>
-                <?php else: ?>
-                    <a href="login.php">Вход</a>
-                    <a href="register.php">Регистрация</a>
-                <?php endif; ?>
-            </nav>
+    <div class="container">
+        <h1>🚀 REST API - Комфорт-отдых</h1>
+        <p>API для управления странами, клиентами и турами туристической компании.</p>
+        
+        <h2>Быстрый старт</h2>
+        <p>Базовый URL: <code>http://localhost/RestApi/api.php</code></p>
+        
+        <h2>📋 Endpoints</h2>
+        
+        <h3>Страны (Countries)</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/countries</code> - Получить все страны<br>
+            <a href="api.php/countries" target="_blank">Попробовать →</a>
         </div>
-    </header>
-
-    <main class="container">
-        <h2>Все видеоролики</h2>
-        <div class="videos-grid">
-            <?php if (empty($videos)): ?>
-                <p>Видеороликов пока нет. Будьте первым, кто загрузит видео!</p>
-            <?php else: ?>
-                <?php foreach ($videos as $video): ?>
-                    <div class="video-card">
-                        <a href="video.php?id=<?= $video['id'] ?>">
-                            <div class="video-thumbnail">
-                                <video>
-                                    <source src="<?= htmlspecialchars(UPLOAD_URL . $video['filename']) ?>" type="video/mp4">
-                                </video>
-                                <div class="play-overlay">▶</div>
-                            </div>
-                            <h3><?= htmlspecialchars($video['title']) ?></h3>
-                            <p class="video-meta">
-                                Автор: <?= htmlspecialchars($video['username']) ?><br>
-                                Просмотров: <?= $video['views'] ?><br>
-                                👍 <?= $video['likes_count'] ?> | 👎 <?= $video['dislikes_count'] ?>
-                            </p>
-                        </a>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/countries/{id}</code> - Получить страну по ID
         </div>
-    </main>
-
-    <script src="script.js"></script>
+        <div class="endpoint">
+            <span class="method post">POST</span>
+            <code>/countries</code> - Создать страну
+        </div>
+        <div class="endpoint">
+            <span class="method put">PUT</span>
+            <code>/countries/{id}</code> - Обновить страну
+        </div>
+        <div class="endpoint">
+            <span class="method delete">DELETE</span>
+            <code>/countries/{id}</code> - Удалить страну
+        </div>
+        
+        <h3>Клиенты (Clients)</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/clients</code> - Получить всех клиентов<br>
+            <a href="api.php/clients" target="_blank">Попробовать →</a>
+        </div>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/clients/{id}</code> - Получить клиента по ID
+        </div>
+        <div class="endpoint">
+            <span class="method post">POST</span>
+            <code>/clients</code> - Создать клиента
+        </div>
+        <div class="endpoint">
+            <span class="method put">PUT</span>
+            <code>/clients/{id}</code> - Обновить клиента
+        </div>
+        <div class="endpoint">
+            <span class="method delete">DELETE</span>
+            <code>/clients/{id}</code> - Удалить клиента
+        </div>
+        
+        <h3>Туры (Tours)</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/tours</code> - Получить все туры<br>
+            <a href="api.php/tours" target="_blank">Попробовать →</a>
+        </div>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <code>/tours/{id}</code> - Получить тур по ID
+        </div>
+        <div class="endpoint">
+            <span class="method post">POST</span>
+            <code>/tours</code> - Создать тур
+        </div>
+        <div class="endpoint">
+            <span class="method put">PUT</span>
+            <code>/tours/{id}</code> - Обновить тур
+        </div>
+        <div class="endpoint">
+            <span class="method delete">DELETE</span>
+            <code>/tours/{id}</code> - Удалить тур
+        </div>
+        
+        <div class="example">
+            <strong>💡 Пример использования с curl:</strong><br>
+            <code>curl http://localhost/RestApi/api.php/countries</code>
+        </div>
+        
+        <p style="margin-top: 30px; color: #666;">
+            📖 Подробная документация доступна в файле <code>README.md</code>
+        </p>
+    </div>
 </body>
 </html>
 

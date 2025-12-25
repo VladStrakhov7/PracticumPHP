@@ -1,0 +1,8 @@
+# База данных SQLite
+database.db
+database.db-journal
+
+# Логи и временные файлы
+*.log
+*.tmp
+
